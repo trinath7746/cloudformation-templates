@@ -1,0 +1,88 @@
+AWSTemplateFormatVersion: 2010-09-09
+Resources:
+  EC2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: ami-0d5eff06f840b45e9
+      InstanceType: t2.micro
+      SecurityGroups:
+        - !Ref SecurityGroup
+      KeyName: teja
+      UserData: !Base64 
+        'Fn::Join':
+          - ''
+          - - |
+              #!/bin/bash -xe
+            - |
+              yum update -y
+            - >
+              trap "/opt/aws/bin/cfn-signal --exit-code 1 --resource
+              WebServerGroup --region ${AWS::Region} --stack ${AWS::StackName}"
+              ERR
+            - |
+              yum install python-pip git mysql -y
+            - |
+              sudo git clone "https://github.com/TejaSrini/RDS_python.git"
+            - |
+              pip install flask
+            - |
+              sudo yum -y install python python-devel mysql-devel redhat-rpm-config gcc
+            - |
+              sudo pip install flask_mysqldb
+            - >
+              /opt/aws/bin/cfn-signal --exit-code 0 --resource WebServerGroup
+              --region ${AWS::Region} --stack ${AWS::StackName}
+  ElasticLoadBalancer:
+    Type: 'AWS::ElasticLoadBalancing::LoadBalancer'
+    Properties:
+      AvailabilityZones: !GetAZs ''
+      Instances:
+        - !Ref EC2Instance
+      Listeners:
+        - LoadBalancerPort: '80'
+          InstancePort: '80'
+          Protocol: HTTP
+      HealthCheck:
+        Target: 'HTTP:80/'
+        HealthyThreshold: '3'
+        UnhealthyThreshold: '5'
+        Interval: '30'
+        Timeout: '5'
+  SecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: ' HTTP SSH access'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: '3306'
+          ToPort: '3306'
+          CidrIp: 0.0.0.0/0
+  RDSDBInstance:
+   Type: 'AWS::RDS::DBInstance'
+   Properties:
+    AllocatedStorage: '20'
+    DBInstanceClass: db.t2.micro
+    DBInstanceIdentifier: database
+    Engine: MySQL
+    EngineVersion: 8.0.16
+    MasterUsername: teja
+    MasterUserPassword: teja8352
+    Port: '3306'
+    PubliclyAccessible: 'false'
+    Tags:
+      - Key: name
+        Value: teja
+DBSecurityGroup: 
+  Type: AWS::RDS::DBSecurityGroup
+  Properties: 
+    DBSecurityGroupIngress: 
+      EC2SecurityGroupName: 
+        Ref: "SecurityGroup"
