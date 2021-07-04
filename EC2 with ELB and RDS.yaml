@@ -43,9 +43,6 @@ Resources:
       Tags:
         - Key: name
           Value: teja
-    Metadata:
-      'AWS::CloudFormation::Designer':
-        id: 8c280bf3-47dd-4cd4-8657-5823fc4c8ccb
   ElasticLoadBalancer:
     Type: 'AWS::ElasticLoadBalancing::LoadBalancer'
     Properties:
@@ -62,9 +59,6 @@ Resources:
         UnhealthyThreshold: '5'
         Interval: '30'
         Timeout: '5'
-    Metadata:
-      'AWS::CloudFormation::Designer':
-        id: f1557da4-3d67-4168-983e-870595e0aabe
   SecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
@@ -82,9 +76,6 @@ Resources:
           FromPort: '3306'
           ToPort: '3306'
           CidrIp: 0.0.0.0/0
-    Metadata:
-      'AWS::CloudFormation::Designer':
-        id: b7fac43b-3311-4707-a88e-d2a781c165bd
   RDSDBInstance:
     Type: 'AWS::RDS::DBInstance'
     Properties:
@@ -102,9 +93,6 @@ Resources:
       Tags:
         - Key: name
           Value: teja
-    Metadata:
-      'AWS::CloudFormation::Designer':
-        id: c9f476e2-93f5-4947-a632-1b30b7651970
   DBSecurityGroup:
     Type: 'AWS::RDS::DBSecurityGroup'
     Properties:
@@ -112,59 +100,3 @@ Resources:
       DBSecurityGroupIngress:
         EC2SecurityGroupName:
           Ref: SecurityGroup
-    Metadata:
-      'AWS::CloudFormation::Designer':
-        id: ea80b9eb-eea9-435e-b9f5-6c1a1c550757
-Metadata:
-  'AWS::CloudFormation::Designer':
-    b7fac43b-3311-4707-a88e-d2a781c165bd:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 30
-        'y': 40
-      z: 1
-      embeds: []
-    ea80b9eb-eea9-435e-b9f5-6c1a1c550757:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 280
-        'y': 60
-      z: 1
-      embeds: []
-    c9f476e2-93f5-4947-a632-1b30b7651970:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 10
-        'y': 270
-      z: 1
-      embeds: []
-      isassociatedwith:
-        - ea80b9eb-eea9-435e-b9f5-6c1a1c550757
-    8c280bf3-47dd-4cd4-8657-5823fc4c8ccb:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 260
-        'y': 200
-      z: 1
-      embeds: []
-      isassociatedwith:
-        - b7fac43b-3311-4707-a88e-d2a781c165bd
-    f1557da4-3d67-4168-983e-870595e0aabe:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 480
-        'y': 260
-      z: 1
-      embeds: []
-      isassociatedwith:
-        - 8c280bf3-47dd-4cd4-8657-5823fc4c8ccb
