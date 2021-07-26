@@ -1,0 +1,71 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: this template creates an Application load Balancer
+
+Parameters:
+  ExportVpcStackName:
+    Description: the name of the stack which export the values
+    Type: String
+
+Resources:
+#Create an Application Load Balancer
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: MyApplicationLoadBalancer
+      Scheme: internet-facing
+      SecurityGroups: 
+        - Fn::ImportValue: !Sub ${ExportVpcStackName}-ALBSecurityGroup
+      Subnets: 
+        - Fn::ImportValue: !Sub ${ExportVpcStackName}-PrivateSubnet1
+        - Fn::ImportValue: !Sub ${ExportVpcStackName}-PrivateSubnet2
+
+#Create a Listener on Port 80
+  ALBListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ALBTargetGroup
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+# Create a Target Group
+  ALBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: /
+      HealthCheckTimeoutSeconds: 5 
+      HealthyThresholdCount: 2
+      Matcher:
+        HttpCode: 200,302
+      Name: EC2Servers
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId: 
+        Fn::ImportValue: !Sub ${ExportVpcStackName}-VPC
+
+Outputs:
+# Export Target Group
+  ALBTargetGroup: 
+    Description: EC2Server Target group
+    Export:
+      Name: !Sub ${AWS::StackName}-ALBTargetGroup
+    Value: !Ref ALBTargetGroup
+
+# Export Application Load Balancer Dns Name
+  ApplicationLoadBalancerDnsName:
+    Description: Application load balancer DNS Name
+    Export:
+      Name: !Sub ${AWS::StackName}-ApplicationLoadBalancerDnsName
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+
+# Export Application Load Balancer Zone ID
+  ApplicationLoadBalancerZoneID:
+    Description: Application Load Balancer canonical hosted zone
+    Export:
+      Name: !Sub ${AWS::StackName}-ApplicationLoadBalancerZoneID
+    Value: !GetAtt ApplicationLoadBalancer.CanonicalHostedZoneID
