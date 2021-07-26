@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: this template is used to create RDS restored from snapshot of another DB
+
+Metadata:
+  AWS::CloudFormation::Interface: 
+    ParameterGroups:
+      - 
+        Label: 
+          default: "Master Username"
+        Parameters: 
+          - DatabaseUsername
+      - 
+        Label: 
+          default: "Master Password"
+        Parameters:
+          - DatabasePassword
+
+Parameters:
+  ExportVpcStackName:
+    Description: the name of the stack which export the values
+    Type: String
+  DatabaseUsername:
+    Description:  enter a valid master username
+    Type: String
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*"
+  DatabasePassword:
+    Description:  enter a valid master password
+    NoEcho: true
+    Type: String
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*"
+
+Resources:   
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for RDS Database
+      SubnetIds: 
+        - Fn::ImportValue: !Sub ${ExportVpcStackName}-PrivateSubnet1
+        - Fn::ImportValue: !Sub ${ExportVpcStackName}-PrivateSubnet2
+      Tags:
+        - Key: Name
+          Value: teja_database subnets
+
+  DatabaseInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AvailabilityZone: !Select [ 0 , !GetAZs ]
+      AllocatedStorage: 20
+      DBInstanceClass: db.t2.micro
+      DBInstanceIdentifier: database-teja
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      Engine: MySQL
+      EngineVersion: 8.0.16
+      MasterUsername: !Ref DatabaseUsername
+      MasterUserPassword: !Ref DatabasePassword
+      Port: '3306'
+      Tags:
+        - Key: name
+          Value: teja
+      VPCSecurityGroups:
+        - Fn::ImportValue: !Sub ${ExportVpcStackName}-DataBaseSecurityGroup
