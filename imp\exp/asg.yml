@@ -1,0 +1,212 @@
+AWSTemplateFormatVersion: 2010-09-09 
+
+Description: this template creates auto scaling group.
+
+Parameters:
+  ExportVpcStackName:
+    Description: The name of the vpc stack that exports values
+    Type: String
+
+  ExportAlbStackName:
+    Description: The name of the alb stack that exports values
+    Type: String
+
+  OperatorEMail:
+    Description: A valid EMail address to notify if there are any scaling operations
+    Type: String
+
+  EC2KeyName:
+    Description: Name of an EC2 KeyPair to enable SSH access to the instance.
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: Must be the name of an existing EC2 KeyPair.
+
+  EC2ImageID:
+    Description: The ID of the custom AMI
+    Type: String
+    Default: ami-0dc2d3e4c0f9ebd18
+
+  InstanceType:
+    Description: WebServers EC2 instance type
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - t2.nano
+      - t2.medium
+      - t2.small
+    ConstraintDescription: Must be a valid EC2 instance type.
+
+Resources:
+  EC2LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 7
+
+  MetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName:
+        Ref: EC2LogGroup
+      FilterPattern: teja8352
+      MetricTransformations:
+      - MetricValue: '1'
+        MetricNamespace: flask
+        MetricName: stringmatch
+
+  EC2LaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      KeyName: !Ref EC2KeyName
+      ImageId: !Ref EC2ImageID
+      SecurityGroups:
+        - Fn::ImportValue: !Sub ${ExportVpcStackName}-EC2SecurityGroup
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: ec2role
+      UserData:
+        Fn::Base64:
+          Fn::Join:
+          - ''
+          - - "#!/bin/bash -xe\n"
+            - 'yum update -y
+
+              '
+            - 'trap "/opt/aws/bin/cfn-signal --exit-code 1 --resource WebServerGroup
+              --region ${AWS::Region} --stack ${AWS::StackName}" ERR
+
+              '
+            - 'yum install python-pip git mysql -y
+
+              '
+            - 'sudo git clone "paste your Git hub link here"
+
+              '
+            - 'sudo yum install -y awslogs
+
+              '
+            - 'sudo su
+
+              '
+            - "echo '[general]\nstate_file = /var/lib/awslogs/agent-state\n[flask_logs]\nregion
+              = us-east-1\ndatetime_format = %b %d %H:%M:%S\nfile =/flaskdb/flask.log\nbuffer_duration
+              = 5000\nlog_stream_name = {instance_id}\ninitial_position = start_of_file\nlog_group_name
+              = "
+            - Ref: EC2LogGroup
+            - |2
+
+              ' >  /etc/awslogs/awslogs.conf
+            - 'sudo systemctl start awslogsd
+
+              '
+            - 'sudo pip install flask
+
+              '
+            - 'sudo yum -y install python python-devel mysql-devel redhat-rpm-config
+              gcc
+
+              '
+            - 'sudo pip install flask_mysqldb
+
+              '
+            - 'sudo pip install mysql-connector
+
+              '
+            - 'cd ..
+
+              '
+            - 'cd ..
+
+              '
+            - 'cd new1
+
+              '
+            - 'sudo python app.py
+
+              '
+            - "/opt/aws/bin/cfn-signal --exit-code 0 --resource WebServerGroup --region
+              ${AWS::Region} --stack ${AWS::StackName}\n"
+
+  NotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Endpoint: !Ref OperatorEMail
+          Protocol: email
+
+  EC2AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: Ec2 Auto Scaling Group
+      VPCZoneIdentifier:
+        - Fn::ImportValue: !Sub ${ExportVpcStackName}-PrivateSubnet1
+        - Fn::ImportValue: !Sub ${ExportVpcStackName}-PrivateSubnet2
+      HealthCheckGracePeriod: 300
+      HealthCheckType: ELB
+      LaunchTemplate:
+        LaunchTemplateName: !Ref EC2LaunchTemplateName
+        Version: !GetAtt EC2LaunchTemplate.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 2
+      DesiredCapacity: 2
+      Tags:
+        - Key: Name
+          Value: teja_Ec2Instance
+          PropagateAtLaunch: true
+      TargetGroupARNs:
+        - Fn::ImportValue: !Sub ${ExportAlbStackName}-ALBTargetGroup
+      NotificationConfiguration:
+        TopicARN: !Ref NotificationTopic
+        NotificationTypes:
+          - 'autoscaling:EC2_INSTANCE_LAUNCH'
+          - 'autoscaling:EC2_INSTANCE_LAUNCH_ERROR'
+          - 'autoscaling:EC2_INSTANCE_TERMINATE'
+          - 'autoscaling:EC2_INSTANCE_TERMINATE_ERROR'
+
+  EC2ScaleUpPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref EC2AutoScalingGroup
+      Cooldown: 60
+      ScalingAdjustment: 1
+
+  EC2ScaleDownPolicy:
+    Type: 'AWS::AutoScaling::ScalingPolicy'
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref EC2AutoScalingGroup
+      Cooldown: 60
+      ScalingAdjustment: -1
+
+  CPUAlarmHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Scale-up if CPU > 30% for 10 minutes
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2 
+      Threshold: 30
+      AlarmActions:
+        - !Ref EC2ScaleUpPolicy
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref EC2AutoScalingGroup
+      ComparisonOperator: GreaterThanThreshold
+
+  CPUAlarmLow:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Scale-down if CPU < 20% for 10 minutes
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 20
+      AlarmActions:
+        - !Ref EC2ScaleDownPolicy
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref EC2AutoScalingGroup
+      ComparisonOperator: LessThanThreshold
